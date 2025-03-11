@@ -203,6 +203,7 @@ export const collect = async (inUrl: string, args: CollectorOptions) => {
         // Function to navigate to a page with a timeout guard
         const navigateWithTimeout = async (page: Page, url: string, timeout: number, waitUntil: PuppeteerLifeCycleEvent) => {
             try {
+            
                 page_response = await Promise.race([
                     page.goto(url, {
                         timeout: timeout,
@@ -216,10 +217,16 @@ export const collect = async (inUrl: string, args: CollectorOptions) => {
                     )
                 ]);
 
-                const tab = autoconsent.attachToPage(page, url, rules, 10);
-                await tab.checked;
-                await tab.doOptIn();
-                console.log('Consent banner handled successfully');
+                page.once('load', async () => {
+                    try {
+                        const tab = autoconsent.attachToPage(page, url, rules, 10);
+                        await tab.checked;
+                        await tab.doOptIn();
+                        console.log('Consent banner handled successfully');
+                    } catch(e) {
+                        console.warn(`CMP error`, e);
+                    }
+                });
 
             } catch (error) {
                 console.log('First attempt failed, trying with domcontentloaded');
@@ -228,10 +235,16 @@ export const collect = async (inUrl: string, args: CollectorOptions) => {
                     waitUntil: 'domcontentloaded' as PuppeteerLifeCycleEvent
                 });
 
-                const tab = autoconsent.attachToPage(page, url, rules, 10);
-                await tab.checked;
-                await tab.doOptIn();
-                console.log('Consent banner handled successfully');
+                page.once('load', async () => {
+                    try {
+                        const tab = autoconsent.attachToPage(page, url, rules, 10);
+                        await tab.checked;
+                        await tab.doOptIn();
+                        console.log('Consent banner handled successfully');
+                    } catch(e) {
+                        console.warn(`CMP error`, e);
+                    }
+                });
             }
             await savePageContent(pageIndex, args.outDir, page, args.saveScreenshots);
         };
