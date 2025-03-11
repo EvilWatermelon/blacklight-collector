@@ -18,7 +18,19 @@ import { setupSessionRecordingInspector } from './inspectors/session-recording';
 import { setUpThirdPartyTrackersInspector } from './inspectors/third-party-trackers';
 import { clearDir, closeBrowser } from './utils';
 
+// duckduckgo libraries
+const autoconsent = require('@duckduckgo/autoconsent/dist/autoconsent.puppet.js');
+const extraRules = require('@duckduckgo/autoconsent/rules/rules.json');
+
 export type CollectorOptions = Partial<typeof DEFAULT_OPTIONS>;
+
+// Duckduckgo CMP blocker
+const consentomatic = extraRules.consentomatic;
+const rules = [
+    ...autoconsent.rules,
+    ...Object.keys(consentomatic).map(name => new autoconsent.ConsentOMaticCMP(`com_${name}`, consentomatic[name])),
+    ...extraRules.autoconsent.map(spec => autoconsent.createAutoCMP(spec)),
+];
 
 const DEFAULT_OPTIONS = {
     outDir: join(process.cwd(), 'bl-tmp'),
@@ -203,12 +215,23 @@ export const collect = async (inUrl: string, args: CollectorOptions) => {
                         }, 10000)
                     )
                 ]);
+
+                const tab = autoconsent.attachToPage(page, url, rules, 10);
+                await tab.checked;
+                await tab.doOptIn();
+                console.log('Consent banner handled successfully');
+
             } catch (error) {
                 console.log('First attempt failed, trying with domcontentloaded');
                 page_response = await page.goto(url, {
                     timeout: timeout,
                     waitUntil: 'domcontentloaded' as PuppeteerLifeCycleEvent
                 });
+
+                const tab = autoconsent.attachToPage(page, url, rules, 10);
+                await tab.checked;
+                await tab.doOptIn();
+                console.log('Consent banner handled successfully');
             }
             await savePageContent(pageIndex, args.outDir, page, args.saveScreenshots);
         };
